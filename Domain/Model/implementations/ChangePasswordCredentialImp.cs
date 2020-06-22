@@ -2,9 +2,9 @@ using System;
 
 namespace Domain
 {
-    public class ChangePasswordCredentials
+    public class ChangePasswordCredentialImp:IChangePasswordCredential
     {
-        public ChangePasswordCredentials(string accessToken, string previousPassword, string newPassword)
+        public ChangePasswordCredentialImp(string accessToken, string previousPassword, string newPassword)
         {
             AccessToken = accessToken ?? throw new ArgumentNullException(nameof(accessToken));
             PreviousPassword = previousPassword ?? throw new ArgumentNullException(nameof(previousPassword));

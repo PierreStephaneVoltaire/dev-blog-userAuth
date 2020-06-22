@@ -2,9 +2,9 @@ using System;
 
 namespace Domain
 {
-    public class ConfirmForgotPassword
+    public class ConfirmForgotPasswordCredentialsImp:IConfirmForgotPasswordCredentials
     {
-        public ConfirmForgotPassword(string password, string confirmationCode, string userName)
+        public ConfirmForgotPasswordCredentialsImp(string password, string confirmationCode, string userName)
         {
             Password = password ?? throw new ArgumentNullException(nameof(password));
             ConfirmationCode = confirmationCode ?? throw new ArgumentNullException(nameof(confirmationCode));

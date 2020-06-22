@@ -5,11 +5,13 @@ using System.Threading.Tasks;
 using Amazon;
 using Amazon.CognitoIdentityProvider;
 using Amazon.CognitoIdentityProvider.Model;
+using Amazon.Extensions.CognitoAuthentication;
 using Amazon.Runtime;
+using Amazon.Runtime.Internal.Auth;
 using Domain;
 using Domain.Adapter;
-
 namespace Infrastructure.Adapters
+
 {
     public class User_Infrstructure_Cognito : AuthAdapter
     {
@@ -18,6 +20,7 @@ namespace Infrastructure.Adapters
         private readonly string _poolId;
         private readonly string _poolSecret;
         private readonly string _region;
+        private readonly CognitoUserPool  _userpool;
 
         public User_Infrstructure_Cognito(string clientId, string poolId, string poolSecret, string region)
         {
@@ -25,28 +28,33 @@ namespace Infrastructure.Adapters
             _poolId = poolId ?? throw new ArgumentNullException(nameof(poolId));
             _poolSecret = poolSecret ?? throw new ArgumentNullException(nameof(poolSecret));
             _region = region ?? throw new ArgumentNullException(nameof(region));
-
             _client = new AmazonCognitoIdentityProviderClient(new AnonymousAWSCredentials(), RegionEndpoint.CACentral1);
+            _userpool = new CognitoUserPool(_poolId, _clientId, _client);
+
         }
 
-
-        public async Task<SignUpResponse> SignUp(UserCredential userCredential)
+        public CognitoUser getCurrentUser( string username)
+        {
+        
+            return new Amazon.Extensions.CognitoAuthentication.CognitoUser(username, _clientId, _userpool, _client);
+        }
+        public async Task<SignUpResponse> SignUp(IUserCredential userCredentialImp)
         {
             var signUpRequest = new SignUpRequest
             {
                 ClientId = _clientId,
-                Password = userCredential.Password,
-                Username = userCredential.Username
+                Password = userCredentialImp.Password,
+                Username = userCredentialImp.Username
             };
             var emailAttribute = new AttributeType
             {
                 Name = "email",
-                Value = userCredential.Email
+                Value = userCredentialImp.Email
             };
             var nicknameAttribute = new AttributeType
             {
                 Name = "nickname",
-                Value = userCredential.Username
+                Value = userCredentialImp.Username
             };
 
             signUpRequest.UserAttributes.Add(nicknameAttribute);
@@ -56,71 +64,60 @@ namespace Infrastructure.Adapters
 
 
         public async Task<ChangePasswordResponse> ChangePasswordAsync(
-            ChangePasswordCredentials changePasswordCredentials,
+            IChangePasswordCredential changePasswordCredentialImp,
             CancellationToken cancellationToken = new CancellationToken())
         {
             var request = new ChangePasswordRequest();
-            request.AccessToken = changePasswordCredentials.AccessToken;
-            request.PreviousPassword = changePasswordCredentials.PreviousPassword;
-            request.ProposedPassword = changePasswordCredentials.NewPassword;
+            request.AccessToken = changePasswordCredentialImp.AccessToken;
+            request.PreviousPassword = changePasswordCredentialImp.PreviousPassword;
+            request.ProposedPassword = changePasswordCredentialImp.NewPassword;
             return await _client.ChangePasswordAsync(request, cancellationToken);
         }
 
         public async Task<ConfirmForgotPasswordResponse> ConfirmForgotPasswordAsync(
-            ConfirmForgotPassword confirmForgotPassword,
+            IConfirmForgotPasswordCredentials confirmForgotPasswordCredentialsImp,
             CancellationToken cancellationToken = new CancellationToken())
         {
             var confirmForgotPasswordRequest = new ConfirmForgotPasswordRequest();
-            confirmForgotPasswordRequest.Username = confirmForgotPassword.UserName;
+            confirmForgotPasswordRequest.Username = confirmForgotPasswordCredentialsImp.UserName;
             confirmForgotPasswordRequest.ClientId = _clientId;
-            confirmForgotPasswordRequest.Password = confirmForgotPassword.Password;
-            confirmForgotPasswordRequest.ConfirmationCode = confirmForgotPassword.ConfirmationCode;
+            confirmForgotPasswordRequest.Password = confirmForgotPasswordCredentialsImp.Password;
+            confirmForgotPasswordRequest.ConfirmationCode = confirmForgotPasswordCredentialsImp.ConfirmationCode;
 
             return await _client.ConfirmForgotPasswordAsync(confirmForgotPasswordRequest, cancellationToken);
         }
 
-        public async Task<ConfirmSignUpResponse> ConfirmSignUpAsync(ConfirmSignupCredentials confirmSignupCredentials,
-            CancellationToken cancellationToken = new CancellationToken())
+        public async void ConfirmSignUpAsync(IConfirmSignupCredential confirmSignupCredentialImp)
         {
-            var request = new ConfirmSignUpRequest
-            {
-                Username = confirmSignupCredentials.Username,
-                ClientId = _clientId,
-                ConfirmationCode = confirmSignupCredentials.ConfirmationCode
-            };
+        
 
+           await getCurrentUser(confirmSignupCredentialImp.Username)
+                .ConfirmSignUpAsync(confirmSignupCredentialImp.ConfirmationCode, true);
 
-            return await _client.ConfirmSignUpAsync(request, cancellationToken);
         }
 
-        public async Task<DeleteUserResponse> DeleteUserAsync(string AccessToken,
-            CancellationToken cancellationToken = new CancellationToken())
+        public async void DeleteUserAsync(string username)
         {
-            var request = new DeleteUserRequest {AccessToken = AccessToken};
-            return await _client.DeleteUserAsync(request, cancellationToken);
+           await getCurrentUser(username).DeleteUserAsync();
         }
 
 
-        public async Task<ForgotPasswordResponse> ForgotPasswordAsync(string username,
-            CancellationToken cancellationToken = new CancellationToken())
+        public async void ForgotPasswordAsync(string username)
         {
-            var request = new ForgotPasswordRequest
-            {
-                ClientId = _clientId,
-                Username = username
-            };
-            return await _client.ForgotPasswordAsync(request, cancellationToken);
+
+            var user = getCurrentUser(username);
+      await user.ForgotPasswordAsync();
         }
 
-        public async Task<InitiateAuthResponse> InitiateAuthAsync(SigninCredentials signinCredentials,
+        public async Task<InitiateAuthResponse> InitiateAuthAsync(ISigninCredential signinCredentialImp,
             CancellationToken cancellationToken = new CancellationToken())
         {
             var request = new InitiateAuthRequest
             {
                 ClientId = _clientId, AuthParameters = new Dictionary<string, string>
                 {
-                    {"USERNAME", signinCredentials.Username},
-                    {"PASSWORD", signinCredentials.Password}
+                    {"USERNAME", signinCredentialImp.Username},
+                    {"PASSWORD", signinCredentialImp.Password}
                 },
 
                 AuthFlow = AuthFlowType.USER_PASSWORD_AUTH
@@ -129,18 +126,9 @@ namespace Infrastructure.Adapters
         }
 
 
-        public async Task<ResendConfirmationCodeResponse> ResendConfirmationCodeAsync(string username,
-            CancellationToken cancellationToken = new CancellationToken())
+        public async void ResendConfirmationCodeAsync(string username)
         {
-            var request = new ResendConfirmationCodeRequest
-            {
-                Username = username,
-                ClientId = _clientId
-            };
-            {
-            }
-            ;
-            return await _client.ResendConfirmationCodeAsync(request, cancellationToken);
+            await getCurrentUser(username).ResendConfirmationCodeAsync();
         }
     }
 }

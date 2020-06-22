@@ -1,10 +1,11 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace Domain
 {
-    public class SigninCredentials
+    public class SigninCredentialImp:ISigninCredential
     {
-        public SigninCredentials(string userName, string password, string email = null)
+        public SigninCredentialImp(string userName, string password, string email = null)
         {
             if (string.IsNullOrEmpty(email) && string.IsNullOrEmpty(userName))
                 throw new ArgumentNullException(nameof(email));
@@ -14,6 +15,7 @@ namespace Domain
 
 
         public string Username { get; }
+
         public string Password { get; }
     }
 }

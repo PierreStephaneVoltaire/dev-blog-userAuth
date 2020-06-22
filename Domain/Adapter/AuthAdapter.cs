@@ -1,32 +1,30 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.CognitoIdentityProvider.Model;
+using Amazon.Extensions.CognitoAuthentication;
 
 namespace Domain.Adapter
 {
     public interface AuthAdapter
     {
-        Task<SignUpResponse> SignUp(UserCredential userCredential);
+        CognitoUser getCurrentUser( string username);
+        Task<SignUpResponse> SignUp(IUserCredential userCredentialImp);
 
-        Task<ChangePasswordResponse> ChangePasswordAsync(ChangePasswordCredentials changePasswordCredentials,
+        Task<ChangePasswordResponse> ChangePasswordAsync(
+            IChangePasswordCredential changePasswordCredentialImp,
             CancellationToken cancellationToken = new CancellationToken());
 
-        Task<ConfirmForgotPasswordResponse> ConfirmForgotPasswordAsync(ConfirmForgotPassword confirmForgotPassword,
+        Task<ConfirmForgotPasswordResponse> ConfirmForgotPasswordAsync(
+            IConfirmForgotPasswordCredentials confirmForgotPasswordCredentialsImp,
             CancellationToken cancellationToken = new CancellationToken());
 
-        Task<ConfirmSignUpResponse> ConfirmSignUpAsync(ConfirmSignupCredentials confirmSignupCredentials,
+        void ConfirmSignUpAsync(IConfirmSignupCredential confirmSignupCredentialImp);
+        void DeleteUserAsync(string username);
+        void ForgotPasswordAsync(string username);
+
+        Task<InitiateAuthResponse> InitiateAuthAsync(ISigninCredential signinCredentialImp,
             CancellationToken cancellationToken = new CancellationToken());
 
-        Task<DeleteUserResponse> DeleteUserAsync(string AccessToken,
-            CancellationToken cancellationToken = new CancellationToken());
-
-        Task<ForgotPasswordResponse> ForgotPasswordAsync(string username,
-            CancellationToken cancellationToken = new CancellationToken());
-
-        Task<InitiateAuthResponse> InitiateAuthAsync(SigninCredentials signinCredentials,
-            CancellationToken cancellationToken = new CancellationToken());
-
-        Task<ResendConfirmationCodeResponse> ResendConfirmationCodeAsync(string username,
-            CancellationToken cancellationToken = new CancellationToken());
+        void ResendConfirmationCodeAsync(string username);
     }
 }

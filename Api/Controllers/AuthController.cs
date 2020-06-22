@@ -1,7 +1,14 @@
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
+using System.Web.Http;
 using Amazon.CognitoIdentityProvider.Model;
+using Api.utils.swagger;
 using Domain;
 using Domain.Adapter;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -24,32 +31,71 @@ namespace Api.Controllers
             _logger = logger;
         }
 
-        [HttpPost]
-        public Task<InitiateAuthResponse> InitiateAuth(string password, string userName = null, string email = null)
+        [Microsoft.AspNetCore.Mvc.HttpPost]
+
+        public ObjectResult InitiateAuth( [Microsoft.AspNetCore.Mvc.FromBody] SigninCredentialDto signinCredential)
         {
-            return _congnitoInstance.InitiateAuthAsync(new SigninCredentials(userName, password, email));
+            try
+            {
+                var loginAction= _congnitoInstance.InitiateAuthAsync(new SigninCredentialImp(signinCredential.Username,signinCredential.Password));
+                Response.Cookies.Append(
+                    "accessToken",
+                    loginAction.Result.AuthenticationResult.AccessToken,
+                    new Microsoft.AspNetCore.Http.CookieOptions()
+                    {
+                        Path = "/",
+                        Domain = "despairdrivendevelopment.net",
+                        IsEssential = true,
+                        Expires = new DateTimeOffset( DateTime.Now.AddSeconds(loginAction.Result.AuthenticationResult.ExpiresIn))
+                        
+                    }
+                );
+                Response.StatusCode = (int) HttpStatusCode.NoContent;
+                return StatusCode((int) HttpStatusCode.NoContent,null);
+            }
+            catch (AggregateException e)
+            {
+                return StatusCode((int) HttpStatusCode.Unauthorized, "Invalid credentials");
+            }
+          
+        
+            
         }
 
-        [HttpPost("forgotpassword")]
-        public Task<ForgotPasswordResponse> ForgotPassword(string userName)
+        [Microsoft.AspNetCore.Mvc.HttpPost("forgotpassword")]
+       
+        public async Task<OkObjectResult> ForgotPassword([Required]string userName)
+
         {
-            return _congnitoInstance.ForgotPasswordAsync(userName);
+          _congnitoInstance.ForgotPasswordAsync(
+                userName);
+         return Ok("password reset successfully we will send you an email with your confirmation code if the account exists");
         }
 
-        [HttpPost("confirmforgotpassword")]
-        public Task<ConfirmForgotPasswordResponse> ConfirmForgotPassword(string ConfirmationCode, string password,
+        [Microsoft.AspNetCore.Mvc.HttpPost("confirmforgotpassword")]
+        public async Task<ActionResult> ConfirmForgotPassword(string ConfirmationCode, string password,
             string userName)
         {
-            return _congnitoInstance.ConfirmForgotPasswordAsync(new ConfirmForgotPassword(password, ConfirmationCode,
-                userName));
+            try
+            {
+                await _congnitoInstance.ConfirmForgotPasswordAsync(new ConfirmForgotPasswordCredentialsImp(password,
+                    ConfirmationCode,
+                    userName));
+                return Ok("password reset");
+            }
+            catch (ExpiredCodeException e)
+            {
+                return Unauthorized("the confirmation code and/or username is invalid");
+            }
+          
         }
 
-        [HttpPost("changepassword")]
-        public Task<ChangePasswordResponse> ChangePassword(string newPassword, string accessToken,
-            string previousPassword)
+        [Microsoft.AspNetCore.Mvc.HttpPost("changepassword")]
+        public Task<ChangePasswordResponse> ChangePassword(ChangePasswordCredentialDto changePasswordCredentials)
         {
-            return _congnitoInstance.ChangePasswordAsync(new ChangePasswordCredentials(accessToken, previousPassword,
-                newPassword));
+            
+            return _congnitoInstance.ChangePasswordAsync(new ChangePasswordCredentialImp(changePasswordCredentials.AccessToken, changePasswordCredentials.PreviousPassword,
+                changePasswordCredentials.NewPassword));
         }
     }
 }

@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 
 namespace Domain
 {
-    public interface IUserCredential
+    public interface ISigninCredential
     {
-        string Email { get; }
         string Username { get; }
         string Password { get; }
     }
+
 }

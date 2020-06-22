@@ -2,9 +2,9 @@ using System;
 
 namespace Domain
 {
-    public class ConfirmSignupCredentials
+    public class ConfirmSignupCredentialImp: IConfirmSignupCredential
     {
-        public ConfirmSignupCredentials(string confirmationCode, string username)
+        public ConfirmSignupCredentialImp(string confirmationCode, string username)
         {
             ConfirmationCode = confirmationCode ?? throw new ArgumentNullException(nameof(confirmationCode));
             Username = username ?? throw new ArgumentNullException(nameof(username));
